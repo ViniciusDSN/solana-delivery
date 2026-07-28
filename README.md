@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZUM — motoboy pago em Solana
 
-## Getting Started
+PoC full-stack construída para o desafio de desenvolvimento em Solana da
+**Superteam Brasil** no **TDC Floripa 2026**.
 
-First, run the development server:
+A ideia: a empresa A chama um motoboy e paga a corrida em SOL. O pagamento
+sai da carteira da empresa e cai direto na carteira do motoboy B — uma
+transferência real na **devnet** da Solana, com os dados da entrega
+(retirada, destino, observações) gravados on-chain via uma instrução
+**Memo**, na mesma transação.
+
+## Como funciona
+
+1. A empresa conecta a carteira (Phantom/Solflare) em **Devnet**.
+2. Preenche a corrida (retirada, entrega, observações) e escolhe um dos
+   motoboys disponíveis — cada um com preço fixo em SOL.
+3. Ao clicar em **"Chamar motoboy e pagar"**, o app monta uma transação com
+   duas instruções:
+   - `SystemProgram.transfer` — envia o valor em SOL da empresa para a
+     carteira do motoboy;
+   - uma instrução para o **Memo Program**
+     (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`) com um JSON contendo
+     origem, destino e observações da corrida.
+4. A carteira assina, o app aguarda a confirmação na devnet e mostra o
+   status da corrida evoluindo (pago → a caminho → retirado → entregue —
+   simulado no front, já que não há um motoboy físico na PoC) com link
+   direto para o Solana Explorer.
+5. O histórico de corridas fica salvo no `localStorage` do navegador.
+
+Não existe backend: toda a lógica roda no cliente, direto contra a RPC da
+devnet. É a integração on-chain que importa para o desafio — o resto
+(matching de motoboys, tracking, etc.) é mockado de propósito para manter o
+escopo de PoC.
+
+## Stack
+
+- Next.js 16 (App Router) + TypeScript + Tailwind CSS v4
+- `@solana/web3.js` + `@solana/wallet-adapter-react` (Phantom/Solflare)
+- `framer-motion` / SVG nativo para as animações
+- `lucide-react` para ícones
+
+## Rodando localmente
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Por padrão o app usa o RPC de devnet do QuickNode fornecido no workshop. Para
+usar outro endpoint (ex: `https://api.devnet.solana.com`), crie um
+`.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+NEXT_PUBLIC_RPC_ENDPOINT=https://api.devnet.solana.com
+```
 
-## Learn More
+### Para testar o pagamento
 
-To learn more about Next.js, take a look at the following resources:
+1. Instale a extensão [Phantom](https://phantom.app) (ou Solflare) e mude a
+   rede da carteira para **Devnet** (Configurações → Developer Settings →
+   Change Network).
+2. Pegue SOL de teste em [faucet.solana.com](https://faucet.solana.com) ou
+   no faucet parceiro [pinestake.com](https://www.pinestake.com/en/faucet).
+3. Conecte a carteira no app, monte a corrida e confirme o pagamento.
+4. O motoboy escolhido é um endereço devnet gerado só para a demo (as chaves
+   privadas ficam em `scripts/motoboys-devnet-keypairs.json`, **fora do
+   git**, e servem apenas para quem quiser mostrar o saldo do motoboy
+   subindo em uma segunda carteira durante a gravação do vídeo).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+  app/                 layout + página principal
+  components/          UI (header, hero, form, seletor de motoboy, stepper, histórico)
+  hooks/useOrderHistory.ts   histórico local (localStorage)
+  lib/
+    solana-config.ts   endpoint devnet, helpers de explorer
+    motoboys.ts         motoboys mock (nome, preço, endereço devnet)
+    transaction.ts       monta a transação (transfer + memo)
+    history.ts            tipos do histórico de corridas
+```
 
-## Deploy on Vercel
+## Deploy
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Projeto pronto para Vercel:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx vercel
+```
+
+Defina `NEXT_PUBLIC_RPC_ENDPOINT` nas env vars do projeto se quiser usar um
+RPC próprio.

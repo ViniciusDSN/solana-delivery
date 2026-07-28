@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local devnet secret keys (never commit private keys)
+scripts/motoboys-devnet-keypairs.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
