@@ -91,11 +91,16 @@ export function DeliveryApp() {
     };
 
     try {
+      const latestBlockhash = await connection.getLatestBlockhash("confirmed");
       const tx = buildDeliveryTransaction({ payer: publicKey, order });
-      const sig = await sendTransaction(tx, connection);
+      tx.recentBlockhash = latestBlockhash.blockhash;
+      tx.feePayer = publicKey;
+
+      const sig = await sendTransaction(tx, connection, {
+        preflightCommitment: "confirmed",
+      });
 
       setPhase("confirming");
-      const latestBlockhash = await connection.getLatestBlockhash();
       await connection.confirmTransaction(
         { signature: sig, ...latestBlockhash },
         "confirmed",
@@ -122,8 +127,9 @@ export function DeliveryApp() {
         timeouts.current.push(t);
       });
     } catch (err) {
+      console.error("Falha ao pagar a corrida:", err);
       setPhase("error");
-      setErrorMessage(err instanceof Error ? err.message : "Transação falhou.");
+      setErrorMessage(describeTransactionError(err));
     }
   }
 
@@ -213,11 +219,17 @@ export function DeliveryApp() {
             </button>
           </div>
 
-          <p className="mt-4 flex items-center gap-1.5 text-xs text-foreground/40">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            Transferência SOL + memo com os dados da corrida, gravados on-chain na devnet.
-            Verifique se sua carteira está configurada para Devnet.
-          </p>
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-purple/30 bg-purple/10 p-3 text-xs text-foreground/70">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple" />
+            <span>
+              Transferência SOL + memo com os dados da corrida, gravados on-chain na
+              devnet. <strong className="text-foreground">
+                Sua carteira precisa estar na rede Devnet
+              </strong>{" "}
+              (Phantom → Configurações → Developer Settings → Change Network) e com
+              saldo de SOL de teste.
+            </span>
+          </div>
 
           {phase === "error" && errorMessage && (
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-orange/30 bg-orange/10 p-3 text-sm text-orange">
@@ -305,6 +317,24 @@ function Field({
       {children}
     </label>
   );
+}
+
+function describeTransactionError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (/reject/i.test(message)) {
+    return "Você cancelou a assinatura na carteira. Clique em pagar novamente quando quiser.";
+  }
+
+  if (/unexpected error/i.test(message)) {
+    return "A carteira recusou a transação sem detalhes (\"Unexpected error\"). Isso quase sempre acontece quando ela está fora da rede Devnet — abra a extensão, mude a rede para Devnet e tente de novo. Se já estiver em Devnet, confira se há saldo de SOL de teste.";
+  }
+
+  if (/insufficient/i.test(message) || /lamports/i.test(message)) {
+    return "Saldo insuficiente na carteira para cobrir a corrida + taxa. Pegue SOL de devnet em faucet.solana.com.";
+  }
+
+  return message || "A transação falhou. Tente novamente.";
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {

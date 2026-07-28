@@ -18,7 +18,7 @@ export function WalletContextProvider({ children }: { children: React.ReactNode 
   );
 
   return (
-    <ConnectionProvider endpoint={DEVNET_ENDPOINT}>
+    <ConnectionProvider endpoint={DEVNET_ENDPOINT} config={{ commitment: "confirmed" }}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
