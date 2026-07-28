@@ -42,3 +42,6 @@ scripts/motoboys-devnet-keypairs.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
+.env*
